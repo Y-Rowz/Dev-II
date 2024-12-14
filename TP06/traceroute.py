@@ -19,10 +19,10 @@ def corriger_encodage(texte):
     """
     Corrige les problèmes d'encodage courants.
     
-    Args:
+    PRE:
         texte (str): Texte à corriger
     
-    Returns:
+    POST:
         str: Texte corrigé
     """
     corrections = {
@@ -37,9 +37,9 @@ def corriger_encodage(texte):
 def nettoyer_destination(destination):
     """
     Extrait le nom de domaine ou l'adresse IP d'une URL complète.
-    Args:
+    PRE:
         destination (str): URL ou adresse IP.
-    Returns:
+    POST:
         str: Domaine ou adresse IP utilisable pour le tracert.
     """
     try:
@@ -56,7 +56,7 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
     """
     Exécute la commande tracert vers une destination donnée.
     
-    Args:
+    PRE:
         destination (str): URL ou adresse IP de destination
         mode_progressif (bool): Affichage progressif des résultats
         fichier_sortie (str, optional): Chemin du fichier de sortie
