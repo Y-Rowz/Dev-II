@@ -1,9 +1,41 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import argparse
 import subprocess
 import sys
 import threading
 import queue
 import time
+import locale
+
+# Force l'encodage UTF-8 pour stdin, stdout et stderr
+sys.stdin.reconfigure(encoding='utf-8')
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
+def corriger_encodage(texte):
+    """
+    Corrige les problèmes d'encodage courants.
+    
+    Args:
+        texte (str): Texte à corriger
+    
+    Returns:
+        str: Texte corrigé
+    """
+    # Mapping des caractères problématiques
+    corrections = {
+        # Autres corrections potentielles
+        '‚': 'é',
+        'ÿ': ''
+    }
+    
+    # Appliquer les corrections
+    for ancien, nouveau in corrections.items():
+        texte = texte.replace(ancien, nouveau)
+    
+    return texte
 
 def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None, timeout=30):
     """
@@ -15,6 +47,17 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
         fichier_sortie (str, optional): Chemin du fichier de sortie
         timeout (int): Temps maximum d'attente en secondes
     """
+    # Configuration de l'encodage
+    try:
+        # Tente de définir l'encodage système à UTF-8
+        locale.setlocale(locale.LC_ALL, '')  # Utilise les paramètres régionaux par défaut
+    except locale.Error:
+        try:
+            # Fallback sur un autre encodage si nécessaire
+            locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
+        except locale.Error:
+            print("Impossible de configurer l'encodage localement.", file=sys.stderr)
+
     # Commande tracert pour Windows
     commande = ["tracert", "-h", "30", destination]  # Limite de 30 sauts
     
@@ -28,10 +71,11 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
             def lire_sortie(processus, queue_obj):
                 try:
                     for ligne in iter(processus.stdout.readline, ''):
-                        ligne = ligne.rstrip()
+                        # Correction de l'encodage
+                        ligne = corriger_encodage(ligne.rstrip())
                         queue_obj.put(ligne)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Erreur de lecture : {e}", file=sys.stderr)
                 finally:
                     processus.stdout.close()
                     queue_obj.put(None)  # Signal de fin
@@ -40,7 +84,7 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
             fichier = None
             if fichier_sortie:
                 try:
-                    fichier = open(fichier_sortie, 'w', encoding='utf-8')
+                    fichier = open(fichier_sortie, 'w', encoding='utf-8', errors='replace')
                 except IOError as erreur_fichier:
                     print(f"Erreur d'ouverture du fichier : {erreur_fichier}", file=sys.stderr)
                     return
@@ -51,7 +95,8 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE, 
                 text=True,
-                universal_newlines=True
+                encoding='cp1252',  # Encodage Windows spécifique
+                errors='replace'  # Remplace les caractères incorrects
             )
             
             # Lancement du thread de lecture
@@ -105,19 +150,24 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
                     stdout=subprocess.PIPE, 
                     stderr=subprocess.PIPE, 
                     text=True,
+                    encoding='cp1252',  # Encodage Windows spécifique
+                    errors='replace',  # Remplace les caractères incorrects
                     check=True,
                     timeout=timeout
                 )
                 
+                # Correction de l'encodage pour la sortie
+                sortie_corrigee = corriger_encodage(resultat.stdout)
+                
                 # Gestion de la sortie
                 if fichier_sortie:
                     try:
-                        with open(fichier_sortie, 'w', encoding='utf-8') as fichier:
-                            fichier.write(resultat.stdout)
+                        with open(fichier_sortie, 'w', encoding='utf-8', errors='replace') as fichier:
+                            fichier.write(sortie_corrigee)
                     except IOError as erreur_fichier:
                         print(f"Erreur d'écriture dans le fichier : {erreur_fichier}", file=sys.stderr)
                 else:
-                    print(resultat.stdout)
+                    print(sortie_corrigee)
             
             except subprocess.TimeoutExpired:
                 print(f"\nLe tracert a dépassé le temps limite de {timeout} secondes.", file=sys.stderr)
