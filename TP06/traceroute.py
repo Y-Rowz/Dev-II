@@ -1,19 +1,11 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-"""
-Script de traceroute pour Windows avec options de progression et de sortie fichier.
-
-Ce script permet de tracer la route réseau entre votre machine 
-et une destination spécifiée, avec des options flexibles.
-"""
-
 import argparse
 import subprocess
 import sys
-import os
+import threading
+import queue
+import time
 
-def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None):
+def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None, timeout=30):
     """
     Exécute la commande tracert vers une destination donnée.
     
@@ -21,21 +13,28 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None)
         destination (str): URL ou adresse IP de destination
         mode_progressif (bool): Affichage progressif des résultats
         fichier_sortie (str, optional): Chemin du fichier de sortie
+        timeout (int): Temps maximum d'attente en secondes
     """
     # Commande tracert pour Windows
-    commande = ["tracert", destination]
+    commande = ["tracert", "-h", "30", destination]  # Limite de 30 sauts
     
     try:
-        # Mode progressif utilisant Popen
+        # Mode progressif amélioré avec gestion de file d'attente et timeout
         if mode_progressif:
-            # Ouverture du processus
-            processus = subprocess.Popen(
-                commande, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
-                text=True,
-                universal_newlines=True
-            )
+            # File d'attente pour stocker la sortie
+            output_queue = queue.Queue()
+            
+            # Fonction pour lire la sortie
+            def lire_sortie(processus, queue_obj):
+                try:
+                    for ligne in iter(processus.stdout.readline, ''):
+                        ligne = ligne.rstrip()
+                        queue_obj.put(ligne)
+                except Exception:
+                    pass
+                finally:
+                    processus.stdout.close()
+                    queue_obj.put(None)  # Signal de fin
             
             # Préparation du fichier de sortie si spécifié
             fichier = None
@@ -46,41 +45,82 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None)
                     print(f"Erreur d'ouverture du fichier : {erreur_fichier}", file=sys.stderr)
                     return
             
-            # Lecture et affichage progressif des résultats
-            try:
-                for ligne in iter(processus.stdout.readline, ''):
-                    ligne = ligne.rstrip()
-                    print(ligne)
-                    if fichier:
-                        fichier.write(ligne + '\n')
-            except Exception as erreur_lecture:
-                print(f"Erreur lors de la lecture : {erreur_lecture}", file=sys.stderr)
-            finally:
-                # Fermeture propre des ressources
-                processus.stdout.close()
-                if fichier:
-                    fichier.close()
-        
-        # Mode standard utilisant run()
-        else:
-            # Exécution du tracert
-            resultat = subprocess.run(
+            # Lancement du processus
+            processus = subprocess.Popen(
                 commande, 
                 stdout=subprocess.PIPE, 
                 stderr=subprocess.PIPE, 
                 text=True,
-                check=True
+                universal_newlines=True
             )
             
-            # Gestion de la sortie
-            if fichier_sortie:
+            # Lancement du thread de lecture
+            thread_lecture = threading.Thread(target=lire_sortie, args=(processus, output_queue))
+            thread_lecture.daemon = True
+            thread_lecture.start()
+            
+            # Gestion du timeout et de l'affichage
+            debut = time.time()
+            ligne_recue = False
+            while True:
                 try:
-                    with open(fichier_sortie, 'w', encoding='utf-8') as fichier:
-                        fichier.write(resultat.stdout)
-                except IOError as erreur_fichier:
-                    print(f"Erreur d'écriture dans le fichier : {erreur_fichier}", file=sys.stderr)
-            else:
-                print(resultat.stdout)
+                    # Attente avec timeout
+                    ligne = output_queue.get(timeout=1)
+                    
+                    # Fin de la lecture
+                    if ligne is None:
+                        break
+                    
+                    # Affichage et écriture
+                    print(ligne)
+                    ligne_recue = True
+                    if fichier:
+                        fichier.write(ligne + '\n')
+                    
+                    # Réinitialiser le temps si une ligne est reçue
+                    debut = time.time()
+                
+                except queue.Empty:
+                    # Vérifier le timeout
+                    if not ligne_recue and time.time() - debut > timeout:
+                        print(f"\nAucune réponse après {timeout} secondes. Arrêt du tracert.", file=sys.stderr)
+                        processus.terminate()
+                        break
+                    
+                    # Vérifier si le processus est toujours actif
+                    if processus.poll() is not None:
+                        break
+            
+            # Nettoyage
+            if fichier:
+                fichier.close()
+            processus.wait()
+        
+        # Mode standard avec timeout
+        else:
+            # Exécution du tracert avec timeout
+            try:
+                resultat = subprocess.run(
+                    commande, 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE, 
+                    text=True,
+                    check=True,
+                    timeout=timeout
+                )
+                
+                # Gestion de la sortie
+                if fichier_sortie:
+                    try:
+                        with open(fichier_sortie, 'w', encoding='utf-8') as fichier:
+                            fichier.write(resultat.stdout)
+                    except IOError as erreur_fichier:
+                        print(f"Erreur d'écriture dans le fichier : {erreur_fichier}", file=sys.stderr)
+                else:
+                    print(resultat.stdout)
+            
+            except subprocess.TimeoutExpired:
+                print(f"\nLe tracert a dépassé le temps limite de {timeout} secondes.", file=sys.stderr)
     
     except subprocess.CalledProcessError as erreur_subprocess:
         print(f"Erreur lors de l'exécution de tracert : {erreur_subprocess}", file=sys.stderr)
@@ -120,6 +160,14 @@ def main():
         help="Fichier de sortie pour enregistrer les résultats"
     )
     
+    # Option de timeout personnalisé
+    parseur.add_argument(
+        "-t", "--timeout", 
+        type=int, 
+        default=30, 
+        help="Temps maximum d'attente en secondes (défaut: 30)"
+    )
+    
     # Récupération des arguments
     args = parseur.parse_args()
     
@@ -128,7 +176,8 @@ def main():
         executer_traceroute(
             args.destination, 
             mode_progressif=args.progressive, 
-            fichier_sortie=args.output_file
+            fichier_sortie=args.output_file,
+            timeout=args.timeout
         )
     except KeyboardInterrupt:
         print("\nOpération interrompue par l'utilisateur.", file=sys.stderr)
