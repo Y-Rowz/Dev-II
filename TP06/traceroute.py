@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import sys
+import re
 import threading
 import queue
 import time
@@ -49,9 +50,23 @@ def nettoyer_destination(destination):
         print(f"Erreur lors de l'analyse de l'URL : {e}", file=sys.stderr)
         return destination  # Retourner l'entrée originale en cas d'échec
 
+def extraire_ips(ligne):
+    """
+    Extrait les adresses IP d'une ligne de traceroute.
+    
+    PRE:
+        ligne (str): Ligne de texte du traceroute
+    
+    POST:
+        list: Liste des adresses IP trouvées dans la ligne
+    """
+    # Expression régulière pour trouver les adresses IPv4
+    ip_pattern = r'\b(?:\d{1,3}\.){3}\d{1,3}\b'
+    return re.findall(ip_pattern, ligne)
+
 def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None, timeout=30):
     """
-    Exécute la commande tracert vers une destination donnée.
+    Exécute la commande tracert vers une destination donnée et extrait les IPs.
     
     PRE:
         destination (str): URL ou adresse IP de destination
@@ -72,6 +87,7 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
     try:
         if mode_progressif:
             output_queue = queue.Queue()
+            ips_trouvees = set()
             
             def lire_sortie(processus, queue_obj):
                 try:
@@ -112,10 +128,19 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
                     ligne = output_queue.get(timeout=1)
                     if ligne is None:
                         break
-                    print(ligne)
-                    ligne_recue = True
+                    
+                    # Extraire les IPs de la ligne
+                    ips_ligne = extraire_ips(ligne)
+                    for ip in ips_ligne:
+                        if ip not in ips_trouvees:
+                            ips_trouvees.add(ip)
+                            print(ip)
+                    
+                    # Si fichier de sortie, on écrit toujours la ligne complète
                     if fichier:
                         fichier.write(ligne + '\n')
+                    
+                    ligne_recue = True
                     debut = time.time()
                 except queue.Empty:
                     if not ligne_recue and time.time() - debut > timeout:
@@ -140,15 +165,20 @@ def executer_traceroute(destination, mode_progressif=False, fichier_sortie=None,
                     check=True,
                     timeout=timeout
                 )
-                sortie_corrigee = corriger_encodage(resultat.stdout)
+                ips_trouvees = set()
+                for ligne in resultat.stdout.split('\n'):
+                    ips_ligne = extraire_ips(ligne)
+                    for ip in ips_ligne:
+                        if ip not in ips_trouvees:
+                            ips_trouvees.add(ip)
+                            print(ip)
+                
                 if fichier_sortie:
                     try:
                         with open(fichier_sortie, 'w', encoding='utf-8', errors='replace') as fichier:
-                            fichier.write(sortie_corrigee)
+                            fichier.write(resultat.stdout)
                     except IOError as erreur_fichier:
                         print(f"Erreur d'écriture dans le fichier : {erreur_fichier}", file=sys.stderr)
-                else:
-                    print(sortie_corrigee)
             except subprocess.TimeoutExpired:
                 print(f"\nLe tracert a dépassé le temps limite de {timeout} secondes.", file=sys.stderr)
     except subprocess.CalledProcessError as erreur_subprocess:
@@ -166,7 +196,7 @@ def main():
     Fonction principale pour parser les arguments et lancer le traceroute.
     """
     parseur = argparse.ArgumentParser(
-        description="Script de tracert réseau pour Windows avec options avancées."
+        description="Script de tracert réseau pour Windows avec extraction des IPs."
     )
     parseur.add_argument(
         "destination", 
@@ -175,7 +205,7 @@ def main():
     parseur.add_argument(
         "-p", "--progressive", 
         action="store_true", 
-        help="Afficher les résultats au fur et à mesure"
+        help="Afficher les IPs au fur et à mesure"
     )
     parseur.add_argument(
         "-o", "--output-file", 
