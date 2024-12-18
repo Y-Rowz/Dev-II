@@ -1,5 +1,6 @@
-import pandas as pd
 import os
+import pandas as pd
+
 
 def importer_csv(dossier):
     """
@@ -8,10 +9,12 @@ def importer_csv(dossier):
     PRE:
         dossier (str): Le chemin du dossier contenant les fichiers CSV.
     
-    Post:
+    POST:
         pd.DataFrame: Un DataFrame combinant tous les fichiers CSV.
     """
-    all_files = [os.path.join(dossier, f) for f in os.listdir(dossier) if f.endswith('.csv')]
+    all_files = [
+        os.path.join(dossier, f) for f in os.listdir(dossier) if f.endswith('.csv')
+    ]
     df_list = [pd.read_csv(file) for file in all_files]
     df = pd.concat(df_list, ignore_index=True)
     return df
