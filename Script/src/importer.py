@@ -5,10 +5,10 @@ def importer_csv(dossier):
     """
     Importe et fusionne tous les fichiers CSV d'un dossier.
     
-    Args:
+    PRE:
         dossier (str): Le chemin du dossier contenant les fichiers CSV.
     
-    Returns:
+    Post:
         pd.DataFrame: Un DataFrame combinant tous les fichiers CSV.
     """
     all_files = [os.path.join(dossier, f) for f in os.listdir(dossier) if f.endswith('.csv')]
