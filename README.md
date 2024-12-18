@@ -29,3 +29,15 @@ Vous pouvez avoir un retour html avec la commande suivante :
 ```bash
 coverage html
 ```
+### 5. installation du linter :
+```bash
+pip install flake8
+```
+Test centralisé :
+```bash
+flake8 mon_script.py
+```
+Test général :
+```bash
+flake8 .
+```
