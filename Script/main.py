@@ -15,6 +15,7 @@ def afficher_menu():
 
 def main():
     df = None
+    df_filtré = None  # Nouvelle variable pour stocker les résultats filtrés
 
     while True:
         afficher_menu()
@@ -28,6 +29,7 @@ def main():
                 print("Colonnes disponibles dans le tableau :", df.columns)
             else:
                 print("Le dossier spécifié est introuvable.")
+        
         elif choix == "2":
             if df is not None:
                 nom = input("Saisissez le nom du produit : ")
@@ -37,17 +39,22 @@ def main():
                 
                 prix_max_input = input("Prix maximum souhaité (laisser vide si non applicable) : ")
                 prix_max = float(prix_max_input) if prix_max_input else None
-                resultats = rechercher_produit(df, nom, categorie, prix_min, prix_max)
+                
+                df_filtré = rechercher_produit(df, nom, categorie, prix_min, prix_max)
                 print("Résultats de la recherche :")
-                print(resultats)
+                print(df_filtré)
             else:
                 print("Veuillez d'abord charger les fichiers CSV.")
+        
         elif choix == "3":
-            if df is not None:
+            # Utiliser df_filtré s'il existe, sinon utiliser df complet
+            data_to_use = df_filtré if df_filtré is not None and not df_filtré.empty else df
+            
+            if data_to_use is not None:
                 chemin_graphique = input("Nom du fichier pour sauvegarder le graphique (sans extension) : ")
                 chemin_graphique = ajouter_extension_si_absente(chemin_graphique, ".png")
                 try:
-                    generer_graphique(df, chemin_graphique)
+                    generer_graphique(data_to_use, chemin_graphique)
                 except ValueError as e:
                     print(f"Erreur : {e}")
                     continue
@@ -55,15 +62,17 @@ def main():
                 chemin_pdf = input("Nom du fichier pour sauvegarder le rapport PDF (sans extension) : ")
                 chemin_pdf = ajouter_extension_si_absente(chemin_pdf, ".pdf")
                 try:
-                    generer_rapport_pdf(df, chemin_pdf, chemin_graphique)
+                    generer_rapport_pdf(data_to_use, chemin_pdf, chemin_graphique)
                     print(f"Le rapport PDF a été créé avec succès : {os.path.abspath(chemin_pdf)}")
                 except FileNotFoundError as e:
                     print(f"Erreur : {e}")
             else:
                 print("Aucun fichier CSV n'a encore été importé.")
+        
         elif choix == "4":
             print("Programme stoppé.")
             break
+        
         else:
             print("Option invalide, veuillez réessayer.")
 
