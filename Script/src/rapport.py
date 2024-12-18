@@ -125,9 +125,28 @@ def rechercher_produit(df, nom, categorie, prix_min, prix_max):
     POST:
         pd.DataFrame: Un DataFrame contenant les résultats de la recherche.
     """
-    filtre = df.query(f"Nom.str.contains('{nom}', case=False) & Catégorie.str.contains('{categorie}', case=False) & (('Prix Unitaire (€)' >= {prix_min}) if {prix_min} is not None else True) & (('Prix Unitaire (€)' <= {prix_max}) if {prix_max} is not None else True)")
-    filtre = filtre.sort_values('Quantité', ascending=False)
-    return filtre
+    # Créer un masque initial qui est toujours Vrai
+    masque = pd.Series([True] * len(df))
+    
+    # Filtrer par nom si un nom est fourni
+    if nom:
+        masque &= df['Nom'].str.contains(nom, case=False)
+    
+    # Filtrer par catégorie si une catégorie est fournie
+    if categorie:
+        masque &= df['Catégorie'].str.contains(categorie, case=False)
+    
+    # Filtrer par prix si des limites sont fournies
+    if prix_min is not None:
+        masque &= df['Prix Unitaire (€)'] >= prix_min
+    
+    if prix_max is not None:
+        masque &= df['Prix Unitaire (€)'] <= prix_max
+    
+    # Appliquer le masque et trier par quantité décroissante
+    resultat = df[masque].sort_values('Quantité', ascending=False)
+    
+    return resultat
 
 def ajouter_extension_si_absente(nom_fichier, extension):
     """

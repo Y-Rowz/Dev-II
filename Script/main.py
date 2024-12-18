@@ -1,4 +1,3 @@
-# main.py
 import os
 import pandas as pd
 from src.rapport import generer_statistiques, generer_graphique, generer_rapport_pdf, ajouter_extension_si_absente
