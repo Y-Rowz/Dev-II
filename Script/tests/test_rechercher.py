@@ -4,7 +4,6 @@ from src.rechercher import rechercher_produit
 
 class TestRechercher(unittest.TestCase):
     def setUp(self):
-        # Updated data to match the CSV file
         data = {
             'Nom': ['Pommes', 'Pâtes', 'Eau', 'Télévision', 'Ordinateur Portable', 'Casque Audio'],
             'Quantité': [50, 100, 200, 10, 5, 20],
