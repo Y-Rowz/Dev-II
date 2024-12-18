@@ -33,7 +33,7 @@ coverage html
 ```bash
 pip install flake8
 ```
-Test centralisé
+Test centralisé :
 ```bash
 flake8 mon_script.py
 ```
