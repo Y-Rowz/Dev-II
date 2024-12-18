@@ -15,7 +15,7 @@ def afficher_menu():
 
 def main():
     df = None
-    df_filtré = None  # Nouvelle variable pour stocker les résultats filtrés
+    df_filtré = None
 
     while True:
         afficher_menu()
@@ -47,7 +47,6 @@ def main():
                 print("Veuillez d'abord charger les fichiers CSV.")
         
         elif choix == "3":
-            # Utiliser df_filtré s'il existe, sinon utiliser df complet
             data_to_use = df_filtré if df_filtré is not None and not df_filtré.empty else df
             
             if data_to_use is not None:
