@@ -45,7 +45,6 @@ def main():
         elif choix == "3":
             if df is not None:
                 chemin_graphique = input("Nom du fichier pour sauvegarder le graphique (sans extension) : ")
-                print(chemin_graphique)
                 chemin_graphique = ajouter_extension_si_absente(chemin_graphique, ".png")
                 try:
                     generer_graphique(df, chemin_graphique)
