@@ -15,7 +15,7 @@ class Animal:
     def __init__(self, habitat):
         self.tete = Tete()
         self.corps = Corps()
-        self.membres = [Membres() for _ in range(4)]  # 4 membres par défaut
+        self.membres = [Membres() for _ in range(4)]
         self.habitat = habitat
 
 class Herbivore(Animal):
