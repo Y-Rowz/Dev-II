@@ -171,9 +171,9 @@ class Fraction:
             exemple :
                 - Fraction(10,5); other = Fraction(5,3) => return  Fraction(30,25)
                 - Fraction(10,5); other = Fraction(-5,3) => return  Fraction(30,-25)
-        RAISE : ZeroDivisionError : si le numératuer du other est égal à 0 car on ne peut pas diviser par 0
+        RAISE : ZeroDivisionError : si le numérateur du other est égal à 0 car on ne peut pas diviser par 0
         """
-        if self.numerator == 0:
+        if other.numerator == 0:
             raise ZeroDivisionError
 
         num = self._simNum * other._simDen
